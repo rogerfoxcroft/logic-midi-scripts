@@ -1,0 +1,63 @@
+/*
+Polyphony to Ordered Multi-Monophony
+(c) 2014 Roger Foxcroft
+
+This script automatically splits chords incrementally across MIDI channels. It varies from the
+Polyphone to Multi-Monophony script in that the channels are guaranteed to be re-sorted in pitch order.
+This ensure that channel 1 is a lower pitch than channel 2, and so on. This means that notes may be
+replayed on higher channels if a lower note is played alongside a note already sounded. Like the other
+plugin legato playing can lead to interesting effects, as more channels are used for the overlapping
+sounds.
+
+Note that if the sound has a slow attack this may sound odd as the note is replayed. The NoteOn
+is issued before the NoteOff to try to mitigate this, but it may still sound a little strange.
+*/
+
+var currentNotes = {};
+
+function HandleMIDI(event)
+{
+  if (event instanceof NoteOn) {
+    // for this plugin to work the incoming channel needs to be channel 1
+    event.channel = 1;
+  
+    // play and store the new note so we can do the reordering.
+    currentNotes[event.pitch] = event;
+    traceAndSend(event);
+      
+    // run through all the notes, ensuring that channels are consecutive, from 1
+    currentChannel = 1;
+    
+    for (i = 0; i < 128; i++) {
+      if ((noteOn = currentNotes[i]) == null)
+        continue;
+        
+      if (currentChannel > noteOn.channel) {
+        // stop the old sound, and replay it on the next channel. There may already be a note on that
+        // channel, in which case we'll shift that one up next time round the loop.  
+        oldChannel = noteOn.channel;      
+        noteOn.channel = currentChannel;
+        traceAndSend(noteOn);
+        
+        noteOff = new NoteOff();
+        noteOff.pitch = noteOn.pitch;
+        noteOff.channel = oldChannel;
+        traceAndSend(noteOff);
+
+      }        
+        
+      currentChannel++;       
+    }
+  }
+  else if (event instanceof NoteOff) {
+    // remap the NoteOff to the original channel
+    event.channel = currentNotes[event.pitch].channel;
+    currentNotes[event.pitch] = null;
+    traceAndSend(event);  
+  }	
+}
+
+function traceAndSend(event) {
+  event.trace();
+  event.send();
+}
