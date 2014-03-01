@@ -15,6 +15,8 @@ is issued before the NoteOff to try to mitigate this, but it may still sound a l
 
 var currentNotes = {};
 
+var MAX_CHANNEL = 4;
+
 function HandleMIDI(event)
 {
   if (event instanceof NoteOn) {
@@ -46,13 +48,18 @@ function HandleMIDI(event)
 
       }        
         
-      currentChannel++;       
+      if (currentChannel + 1 <= MAX_CHANNEL) {
+        currentChannel++;
+      }      
     }
   }
   else if (event instanceof NoteOff) {
     // remap the NoteOff to the original channel
     event.channel = currentNotes[event.pitch].channel;
     currentNotes[event.pitch] = null;
+    traceAndSend(event);  
+  }	
+  else {
     traceAndSend(event);  
   }	
 }
