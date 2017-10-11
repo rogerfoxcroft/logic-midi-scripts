@@ -1,34 +1,37 @@
-/** Simple step sequencer. Update the array in PluginParameters.seq with the notes you want, then any key will play each note in sequence. **/
+/**
+ * Simple step sequencer.
+ * Update the array in PluginParameters.seq with the notes you want, then any key will play each note in sequence.
+ */
 
-var PluginParameters =                                                                                      
+var PluginParameters =
 {
-  seq: ['C3', 'D3', 'E3'],
-  currentStep: 0,
+    seq: ['C3', 'D3', 'E3'],
+    currentStep: 0,
 };
 
 function HandleMIDI(event)
 {
-  var numberOfSteps = PluginParameters.seq.length - 1;
-  
-  if (event instanceof NoteOn) {
-    event.pitch = MIDI.noteNumber(PluginParameters.seq[PluginParameters.currentStep]);
-    PluginParameters.currentStep++;
-    
-    if (PluginParameters.currentStep > numberOfSteps) {
-      PluginParameters.currentStep = 0;
+    var numberOfSteps = PluginParameters.seq.length - 1;
+
+    if (event instanceof NoteOn) {
+        event.pitch = MIDI.noteNumber(PluginParameters.seq[PluginParameters.currentStep]);
+        PluginParameters.currentStep++;
+
+        if (PluginParameters.currentStep > numberOfSteps) {
+            PluginParameters.currentStep = 0;
+        }
     }
-  }
-  
-  if (event instanceof NoteOff) {
-    var note = PluginParameters.currentStep - 1;
-    
-    if (note < 0) {
-      note = numberOfSteps;
+
+    if (event instanceof NoteOff) {
+        var note = PluginParameters.currentStep - 1;
+
+        if (note < 0) {
+            note = numberOfSteps;
+        }
+
+        event.pitch = MIDI.noteNumber(PluginParameters.seq[note]);
     }
-    
-    event.pitch = PluginParameters.seq[note];
- }
-  
+
 	event.trace();
 	event.send();
 }
