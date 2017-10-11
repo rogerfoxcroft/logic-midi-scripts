@@ -1,20 +1,38 @@
 /**
  * Simple step sequencer.
- * Update the array in PluginParameters.seq with the notes you want, then any key will play each note in sequence.
+ * Update the array in PluginParameters.seq with the notes you want, then any key will play each note in sequence. seq is an array of
+ * arrays, so you can trigger chords.
  */
 
 var PluginParameters =
 {
-    seq: ['C3', 'D3', 'E3'],
+    seq: [
+      ['C3', 'E3'], 
+      ['D3'], 
+      ['E3', 'G3', 'C4'],
+    ],
     currentStep: 0,
+    triggerNote: 'A#2'
 };
 
 function HandleMIDI(event)
 {
+		if (MIDI.noteNumber(PluginParameters.triggerNote) != event.pitch) {
+		  event.send();
+		  return;
+		}
+		
     var numberOfSteps = PluginParameters.seq.length - 1;
 
     if (event instanceof NoteOn) {
-        event.pitch = MIDI.noteNumber(PluginParameters.seq[PluginParameters.currentStep]);
+    		  for (var n = 0; n < PluginParameters.seq[PluginParameters.currentStep].length; n++) {
+    		    newNote = new NoteOn();
+    		    newNote.pitch = MIDI.noteNumber(PluginParameters.seq[PluginParameters.currentStep][n]);
+    		    newNote.channel = event.channel;
+    		    newNote.trace();
+    		    newNote.send();
+    		  }
+    		  
         PluginParameters.currentStep++;
 
         if (PluginParameters.currentStep > numberOfSteps) {
@@ -23,15 +41,14 @@ function HandleMIDI(event)
     }
 
     if (event instanceof NoteOff) {
-        var note = PluginParameters.currentStep - 1;
-
-        if (note < 0) {
-            note = numberOfSteps;
-        }
-
-        event.pitch = MIDI.noteNumber(PluginParameters.seq[note]);
+    		var previousStep = (PluginParameters.currentStep == 0) ? numberOfSteps : PluginParameters.currentStep - 1;
+    		
+    		for (var n = 0; n < PluginParameters.seq[previousStep].length; n++) {
+    		  newNote = new NoteOff();
+    		  newNote.pitch = MIDI.noteNumber(PluginParameters.seq[previousStep][n]);
+    		  newNote.channel = event.channel;
+    		  newNote.trace();
+    		  newNote.send();
+    		}  
     }
-
-	event.trace();
-	event.send();
 }
