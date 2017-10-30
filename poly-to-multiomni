@@ -16,13 +16,13 @@ other notes in a chord will be channel 3.
 
 var currentNotes = {};
 var currentChannels = {};
-var MAX_CHANNEL = 3;
+var MAX_CHANNELS = 3;
 
 function HandleMIDI(event)
 {
   if (event instanceof NoteOn) {
     // Use the next free channel
-    for (channel = 1; channel <= MAX_CHANNEL; channel++) {
+    for (channel = 1; channel <= MAX_CHANNELS; channel++) {
       if (currentChannels[channel] == null) {
         // Found one
         event.channel = channel;
@@ -30,12 +30,12 @@ function HandleMIDI(event)
         break;
       }
     }
-    
-    if (channel > MAX_CHANNEL) {
+
+    if (channel > MAX_CHANNELS) {
       // Didn't find a free channel, so reuse the top channel, just to make sure we get something played
-      event.channel = MAX_CHANNEL;
+      event.channel = MAX_CHANNELS;
     }
-    
+
     currentNotes[event.pitch] = event;
   }
   else if (event instanceof NoteOff) {
@@ -45,10 +45,10 @@ function HandleMIDI(event)
       currentNotes[event.pitch] = null;
 
       // Clear record of this channel being used
-      currentChannels[event.channel] = null;    
+      currentChannels[event.channel] = null;
     }
   }
-	
+
 	event.trace();
 	event.send();
 }
