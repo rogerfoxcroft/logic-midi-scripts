@@ -1,6 +1,6 @@
 /*
 Polyphony to Ordered Multi-Monophony
-(c) 2014 Roger Foxcroft
+(c) 2018 Roger Foxcroft
 
 This script automatically splits chords incrementally across MIDI channels. It varies from the
 Polyphone to Multi-Monophony script in that the channels are guaranteed to be re-sorted in pitch order.
@@ -15,27 +15,41 @@ is issued before the NoteOff to try to mitigate this, but it may still sound a l
 
 var currentNotes = {};
 
-var PluginParameters = [{
-	name:"Number of channels", 
-	type:"menu", 
-	valueStrings:["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"], 
-	defaultValue:2}];
+var PluginParameters = [
+  {
+	  name:"Number of channels", 
+	  type:"menu", 
+	  valueStrings:["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"], 
+	  defaultValue:"3"
+  },
+  {
+    name:"Start channel",
+	  type:"menu", 
+	  valueStrings:["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"], 
+	  defaultValue:"1"
+  }
+];
 
 function HandleMIDI(event)
 {
-  // Get parameter returns the array index, starting from 0, so add 1 to this.
-  var MAX_CHANNEL = GetParameter("Number of channels") + 1;
+  var NUM_CHANNELS = GetParameter("Number of channels") + 1;
+  var START_CHANNEL = GetParameter("Start channel") + 1;
 
+  if (START_CHANNEL + NUM_CHANNELS > 16) {
+    Trace("Check plugin settings - start channel + max channel must not exceed 16");
+    traceAndSend(event);
+    return;
+  }
+  
   if (event instanceof NoteOn) {
-    // for this plugin to work the incoming channel needs to be channel 1
-    event.channel = 1;
+    event.channel = START_CHANNEL;
   
     // play and store the new note so we can do the reordering.
     currentNotes[event.pitch] = event;
     traceAndSend(event);
       
-    // run through all the notes, ensuring that channels are consecutive, from 1
-    currentChannel = 1;
+    // run through all the notes, ensuring that channels are consecutive, from the start channel
+    currentChannel = START_CHANNEL;
     
     for (i = 0; i < 128; i++) {
       if ((noteOn = currentNotes[i]) == null)
@@ -55,7 +69,7 @@ function HandleMIDI(event)
 
       }        
         
-      if (currentChannel + 1 <= MAX_CHANNEL) {
+      if (currentChannel + 1 < (START_CHANNEL + NUM_CHANNELS)) {
         currentChannel++;
       }      
     }
@@ -67,12 +81,12 @@ function HandleMIDI(event)
     traceAndSend(event);  
   }	
   else {
-    traceAndSend(event);  
+    // send control messages to all channels affected by this plugin
+    for (i = START_CHANNEL; i < START_CHANNEL + NUM_CHANNELS; i++) {
+      event.channel = i;
+      traceAndSend(event);  
+    }
   }	
-}
-
-function ParameterChanged(param, value) {
-  Trace("Now mapping input to " + (value + 1) + " channels...");
 }
 
 function traceAndSend(event) {
