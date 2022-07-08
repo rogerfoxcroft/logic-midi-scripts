@@ -1,0 +1,29 @@
+/*
+This simple script will automatically bend a note up while it's held. This was programmed for an
+auto timp bend (once I'd mapped PB for Timpani+) but I guess may have other uses.
+
+Timings are hardcoded - may get round to putting some controls on at some point.
+*/
+
+// example: simple pass through and MIDI monitor
+
+var NeedsTimingInfo = true;
+
+function HandleMIDI(evt)
+{
+  if (evt instanceof NoteOn) {
+    for (let ccv = 0; ccv < 8192; ccv+=1000)
+    {
+      const pb = new PitchBend();
+      pb.channel = evt.channel;
+      pb.value = ccv;
+      pb.sendAfterMilliseconds(ccv / 10);
+      
+    }
+  }
+  else if (evt instanceof NoteOff) {
+    new PitchBend(evt.channel, 0).sendAfterMilliseconds(2000);
+  }
+  
+  evt.send();
+}
