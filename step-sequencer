@@ -1,57 +1,197 @@
 /**
- * Simple step sequencer. Parameters:
- * seq - an array of arrays to sequence. The inner arrays play concurrently so you can step play chords
- * currentStep - used internally, if this is non-zero the sequence will start offset by that step
- * triggerNote - (optional) if present the sequence will only trigger when that note is played
+ * Simple step sequencer with a basic UI for trigger note and sequence editing.
  */
 
-var PluginParameters =
-{
-    seq: [
-        ['C3', 'E3'],
-        ['D3'],
-        ['E3', 'G3', 'C4'],
-    ],
-    currentStep: 0,
-    triggerNote: 'A#2'
+var NOTE_NAMES = buildNoteNames();
+var NOTE_MENU_VALUES = ["Off"].concat(NOTE_NAMES);
+var STEP_LABELS = ["1", "2", "3", "4", "5", "6", "7", "8"];
+var NOTE_SLOT_COUNT = 4;
+
+var STATE = {
+  seq: [
+    [MIDI.noteNumber("C3"), MIDI.noteNumber("E3")],
+    [MIDI.noteNumber("D3")],
+    [MIDI.noteNumber("E3"), MIDI.noteNumber("G3"), MIDI.noteNumber("C4")],
+    [],
+    [],
+    [],
+    [],
+    []
+  ],
+  stepCount: 3,
+  currentStep: 0,
+  selectedStep: 0,
+  triggerNote: MIDI.noteNumber("A#2")
 };
+
+var isRefreshingControls = false;
+
+var PARAM_TRIGGER_NOTE = 0;
+var PARAM_STEP_COUNT = 1;
+var PARAM_SELECTED_STEP = 2;
+var PARAM_NOTE_1 = 3;
+var PARAM_NOTE_2 = 4;
+var PARAM_NOTE_3 = 5;
+var PARAM_NOTE_4 = 6;
+
+var PluginParameters = [
+  {
+    name: "Trigger note",
+    type: "menu",
+    valueStrings: ["Any"].concat(NOTE_NAMES),
+    defaultValue: STATE.triggerNote + 1
+  },
+  {
+    name: "Step count",
+    type: "lin",
+    minValue: 1,
+    maxValue: 8,
+    numberOfSteps: 7,
+    defaultValue: STATE.stepCount
+  },
+  {
+    name: "Selected step",
+    type: "menu",
+    valueStrings: STEP_LABELS,
+    defaultValue: STATE.selectedStep
+  },
+  {
+    name: "Note 1",
+    type: "menu",
+    valueStrings: NOTE_MENU_VALUES,
+    defaultValue: noteMenuIndex(STATE.seq[0][0])
+  },
+  {
+    name: "Note 2",
+    type: "menu",
+    valueStrings: NOTE_MENU_VALUES,
+    defaultValue: noteMenuIndex(STATE.seq[0][1])
+  },
+  {
+    name: "Note 3",
+    type: "menu",
+    valueStrings: NOTE_MENU_VALUES,
+    defaultValue: noteMenuIndex(STATE.seq[0][2])
+  },
+  {
+    name: "Note 4",
+    type: "menu",
+    valueStrings: NOTE_MENU_VALUES,
+    defaultValue: noteMenuIndex(STATE.seq[0][3])
+  }
+];
+
+function ParameterChanged(param, value)
+{
+  if (isRefreshingControls) {
+    return;
+  }
+
+  if (param === PARAM_TRIGGER_NOTE) {
+    STATE.triggerNote = value === 0 ? null : value - 1;
+    return;
+  }
+
+  if (param === PARAM_STEP_COUNT) {
+    STATE.stepCount = value;
+
+    if (STATE.currentStep >= STATE.stepCount) {
+      STATE.currentStep = 0;
+    }
+
+    if (STATE.selectedStep >= STATE.stepCount) {
+      STATE.selectedStep = 0;
+      refreshEditorControls();
+    }
+    return;
+  }
+
+  if (param === PARAM_SELECTED_STEP) {
+    STATE.selectedStep = value;
+    refreshEditorControls();
+    return;
+  }
+
+  if (param >= PARAM_NOTE_1 && param <= PARAM_NOTE_4) {
+    var slotIndex = param - PARAM_NOTE_1;
+    var stepNotes = [];
+
+    for (var i = 0; i < NOTE_SLOT_COUNT; i++) {
+      var menuValue = i === slotIndex ? value : GetParameter("Note " + (i + 1));
+      if (menuValue > 0) {
+        stepNotes.push(menuValue - 1);
+      }
+    }
+
+    STATE.seq[STATE.selectedStep] = stepNotes;
+  }
+}
 
 function HandleMIDI(event)
 {
-    if (PluginParameters.triggerNote && MIDI.noteNumber(PluginParameters.triggerNote) != event.pitch) {
-        event.send();
-        return;
+  if (STATE.triggerNote !== null && STATE.triggerNote !== event.pitch) {
+    event.send();
+    return;
+  }
+
+  var lastStepIndex = STATE.stepCount - 1;
+
+  if (event instanceof NoteOn) {
+    playStepNotes(STATE.currentStep, NoteOn, event);
+    STATE.currentStep++;
+
+    if (STATE.currentStep > lastStepIndex) {
+      STATE.currentStep = 0;
     }
+  }
 
-    var numberOfSteps = PluginParameters.seq.length - 1;
+  if (event instanceof NoteOff) {
+    var previousStep = STATE.currentStep === 0 ? lastStepIndex : STATE.currentStep - 1;
+    playStepNotes(previousStep, NoteOff, event);
+  }
+}
 
-    if (event instanceof NoteOn) {
-        for (var n = 0; n < PluginParameters.seq[PluginParameters.currentStep].length; n++) {
-            newNote = new NoteOn();
-            newNote.pitch = MIDI.noteNumber(PluginParameters.seq[PluginParameters.currentStep][n]);
-            newNote.channel = event.channel;
-            newNote.velocity = event.velocity;
-            newNote.trace();
-            newNote.send();
-        }
+function playStepNotes(stepIndex, EventClass, sourceEvent)
+{
+  var stepNotes = STATE.seq[stepIndex] || [];
 
-        PluginParameters.currentStep++;
+  for (var n = 0; n < stepNotes.length; n++) {
+    var newNote = new EventClass();
+    newNote.pitch = stepNotes[n];
+    newNote.channel = sourceEvent.channel;
+    newNote.velocity = sourceEvent.velocity;
+    newNote.trace();
+    newNote.send();
+  }
+}
 
-        if (PluginParameters.currentStep > numberOfSteps) {
-            PluginParameters.currentStep = 0;
-        }
-    }
+function refreshEditorControls()
+{
+  var stepNotes = STATE.seq[STATE.selectedStep] || [];
 
-    if (event instanceof NoteOff) {
-        var previousStep = (PluginParameters.currentStep == 0) ? numberOfSteps : PluginParameters.currentStep - 1;
+  isRefreshingControls = true;
+  SetParameter("Selected step", STATE.selectedStep);
+  SetParameter("Note 1", noteMenuIndex(stepNotes[0]));
+  SetParameter("Note 2", noteMenuIndex(stepNotes[1]));
+  SetParameter("Note 3", noteMenuIndex(stepNotes[2]));
+  SetParameter("Note 4", noteMenuIndex(stepNotes[3]));
+  isRefreshingControls = false;
+}
 
-        for (var n = 0; n < PluginParameters.seq[previousStep].length; n++) {
-            newNote = new NoteOff();
-            newNote.pitch = MIDI.noteNumber(PluginParameters.seq[previousStep][n]);
-            newNote.channel = event.channel;
-            newNote.velocity = event.velocity;
-            newNote.trace();
-            newNote.send();
-        }
-    }
+function noteMenuIndex(noteNumber)
+{
+  return typeof noteNumber === "number" ? noteNumber + 1 : 0;
+}
+
+function buildNoteNames()
+{
+  var pitchClasses = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  var names = [];
+
+  for (var noteNumber = 0; noteNumber < 128; noteNumber++) {
+    var octave = Math.floor(noteNumber / 12) - 2;
+    names.push(pitchClasses[noteNumber % 12] + octave);
+  }
+
+  return names;
 }
