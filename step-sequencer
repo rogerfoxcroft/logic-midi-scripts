@@ -4,7 +4,7 @@
 
 var NOTE_NAMES = buildNoteNames();
 var NOTE_MENU_VALUES = ["Off"].concat(NOTE_NAMES);
-var STEP_LABELS = ["1", "2", "3", "4", "5", "6", "7", "8"];
+var MAX_STEPS = 20;
 var NOTE_SLOT_COUNT = 4;
 
 var STATE = {
@@ -12,11 +12,6 @@ var STATE = {
     [MIDI.noteNumber("C3"), MIDI.noteNumber("E3")],
     [MIDI.noteNumber("D3")],
     [MIDI.noteNumber("E3"), MIDI.noteNumber("G3"), MIDI.noteNumber("C4")],
-    [],
-    [],
-    [],
-    [],
-    []
   ],
   stepCount: 3,
   currentStep: 0,
@@ -45,14 +40,14 @@ var PluginParameters = [
     name: "Step count",
     type: "lin",
     minValue: 1,
-    maxValue: 8,
-    numberOfSteps: 7,
+    maxValue: MAX_STEPS,
+    numberOfSteps: MAX_STEPS - 1,
     defaultValue: STATE.stepCount
   },
   {
     name: "Selected step",
     type: "menu",
-    valueStrings: STEP_LABELS,
+    valueStrings: buildStepLabels(STATE.stepCount),
     defaultValue: STATE.selectedStep
   },
   {
@@ -94,6 +89,8 @@ function ParameterChanged(param, value)
 
   if (param === PARAM_STEP_COUNT) {
     STATE.stepCount = value;
+    ensureSequenceLength(STATE.stepCount);
+    updateStepSelector();
 
     if (STATE.currentStep >= STATE.stepCount) {
       STATE.currentStep = 0;
@@ -183,6 +180,30 @@ function noteMenuIndex(noteNumber)
   return typeof noteNumber === "number" ? noteNumber + 1 : 0;
 }
 
+function ensureSequenceLength(stepCount)
+{
+  while (STATE.seq.length < stepCount) {
+    STATE.seq.push([]);
+  }
+}
+
+function updateStepSelector()
+{
+  PluginParameters[PARAM_SELECTED_STEP].valueStrings = buildStepLabels(STATE.stepCount);
+  UpdatePluginParameters();
+}
+
+function buildStepLabels(stepCount)
+{
+  var labels = [];
+
+  for (var step = 1; step <= stepCount; step++) {
+    labels.push(String(step));
+  }
+
+  return labels;
+}
+
 function buildNoteNames()
 {
   var pitchClasses = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -195,3 +216,5 @@ function buildNoteNames()
 
   return names;
 }
+
+ensureSequenceLength(STATE.stepCount);
