@@ -2,7 +2,7 @@
 
 A collection of MIDI Scripter scripts for Logic Pro and MainStage.
 
-These scripts are intended for Logic's `Scripter` MIDI plug-in and are aimed at practical performance and routing tasks such as channel splitting, velocity switching, pitch bends, and simple sequencing.
+These scripts are intended for Logic's `Scripter` MIDI plug-in and are aimed at practical performance and routing tasks such as channel splitting, velocity switching, pitch bends, harp glisses, and simple sequencing.
 
 ## How to use these scripts
 
@@ -13,7 +13,7 @@ These scripts are intended for Logic's `Scripter` MIDI plug-in and are aimed at 
 
 ## Script guide
 
-### `auto-bend`
+### `auto-bend.js`
 
 Automatically applies pitch bend while a note is held, then resets the bend when the note is released.
 
@@ -23,7 +23,22 @@ Controls:
 
 Useful for patches that need a predictable automatic bend, such as timpani or synth effects.
 
-### `multichannel-flood`
+### `harp-gliss.js`
+
+Turns any single key press into a diatonic harp-style gliss, sweeping through the notes of a chosen scale. The trigger note itself is absorbed rather than passed through, and non-note events such as CC and pitch bend pass through untouched.
+
+Controls:
+- `Key`: tonic of the scale, `C` to `B`
+- `Scale`: `Major`, `Natural Minor`, `Dorian`, `Mixolydian`, or `Pentatonic Major`
+- `Start Note` and `End Note`: the two ends of the sweep; if `End Note` is lower than `Start Note` the gliss runs downwards
+- `Duration ms`: total time from the first note to the last
+- `Start Velocity` and `End Velocity`: velocity ramps between these across the sweep
+- `Note Length ms`: how long each gliss note sustains
+- `Direction`: `One Way` sweeps from start to end; `Round Trip` sweeps out to the end note and straight back, with velocity peaking at the turnaround
+
+Choose `Pentatonic Major` for the classic black-key gliss, or `Major`/`Minor` for a seven-note diatonic sweep. Map `Direction` to a Screen Control in MainStage to switch gliss styles per patch.
+
+### `multichannel-flood.js`
 
 Duplicates incoming MIDI from channel 1 across multiple MIDI channels.
 
@@ -32,7 +47,7 @@ Controls:
 
 Useful for layering multitimbral sounds or driving several MIDI channels from one performance.
 
-### `poly-to-multiomni`
+### `poly-to-multiomni.js`
 
 Splits polyphonic input across multiple MIDI channels, assigning each new held note to the next available channel.
 
@@ -42,7 +57,7 @@ Behavior:
 
 Useful for playing separate monophonic sounds from a single keyboard part.
 
-### `poly-to-ordered-multimono`
+### `poly-to-ordered-multimono.js`
 
 Splits chords across MIDI channels while keeping the active notes sorted by pitch, so lower notes stay on lower-numbered channels.
 
@@ -50,9 +65,9 @@ Controls:
 - `Number of channels`
 - `Start channel`
 
-Unlike `poly-to-multiomni`, this script can reassign an already-sounding note to a higher channel if a new lower note is played.
+Unlike `poly-to-multiomni.js`, this script can reassign an already-sounding note to a higher channel if a new lower note is played.
 
-### `step-sequencer`
+### `step-sequencer.js`
 
 A simple trigger-driven step sequencer that plays one stored step per incoming note.
 
@@ -64,7 +79,7 @@ Controls:
 
 Each incoming `NoteOn` advances the sequence by one step. The corresponding `NoteOff` sends note-offs for the notes from the previous step.
 
-### `velocity-switch`
+### `velocity-switch.js`
 
 Maps note velocity onto MIDI channels 1-4.
 
